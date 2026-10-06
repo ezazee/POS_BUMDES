@@ -1,0 +1,164 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  CASHIER
+}
+
+enum PaymentMethod {
+  CASH
+  TRANSFER
+  QRIS
+}
+
+enum StockMovementType {
+  SALE
+  MANUAL
+  ADJUSTMENT
+}
+
+model User {
+  id            String        @id @default(cuid())
+  name          String
+  email         String        @unique
+  emailVerified Boolean       @default(false)
+  image         String?
+  role          Role          @default(CASHIER)
+  isActive      Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+  transactions  Transaction[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("verification")
+}
+
+model Product {
+  id            String            @id @default(cuid())
+  name          String
+  sku           String            @unique
+  barcode       String?           @unique
+  category      String
+  purchasePrice Int
+  sellingPrice  Int
+  stock         Int               @default(0)
+  isActive      Boolean           @default(true)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  items         TransactionItem[]
+  stockMovements StockMovement[]
+
+  @@map("products")
+}
+
+model Transaction {
+  id            String            @id @default(cuid())
+  invoiceNumber String            @unique
+  subtotal      Int
+  discount      Int               @default(0)
+  total         Int
+  paymentMethod PaymentMethod     @default(CASH)
+  paidAmount    Int               @default(0)
+  changeAmount  Int               @default(0)
+  cashierId     String
+  cashier       User              @relation(fields: [cashierId], references: [id])
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  items         TransactionItem[]
+
+  @@map("transactions")
+}
+
+model TransactionItem {
+  id            String      @id @default(cuid())
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  productId     String
+  product       Product     @relation(fields: [productId], references: [id])
+  productName   String
+  quantity      Int
+  purchasePrice Int
+  sellingPrice  Int
+  subtotal      Int
+  createdAt     DateTime    @default(now())
+
+  @@map("transaction_items")
+}
+
+model StockMovement {
+  id          String            @id @default(cuid())
+  productId   String
+  product     Product           @relation(fields: [productId], references: [id])
+  type        StockMovementType @default(SALE)
+  quantity    Int
+  stockBefore Int
+  stockAfter  Int
+  referenceId String?
+  note        String?
+  createdAt   DateTime          @default(now())
+
+  @@map("stock_movements")
+}
+
+model Setting {
+  id            String   @id @default("default")
+  bumdesName    String   @default("BUMDes Mandiri Sejahtera")
+  address       String   @default("Jl. Raya Desa Karangsari No. 12, Jawa Tengah")
+  phone         String   @default("0812-3456-7890")
+  receiptFooter String   @default("Terima kasih atas kunjungan Anda. Belanja di BUMDes membangun kemandirian desa.")
+  updatedAt     DateTime @updatedAt
+
+  @@map("settings")
+}
